@@ -1,6 +1,5 @@
 const ANSWER_LENGTH = 5;
 const ROUNDS = 6;
-
 const letters = document.querySelectorAll(".scoreboard-letter");
 const loadingDiv = document.querySelector(".info-bar");
 
@@ -25,13 +24,30 @@ async function init() {
     } else {
       currentGuess = currentGuess.substring(0, currentGuess.length - 1) + letter;
     }
-    updateLetters(currentRow, currentGuess);
+    letters[currentRow * ANSWER_LENGTH + currentGuess.length - 1].innerText = letter;
   }
 
-  function commitGuess() {
+  async function commit() {
     if (currentGuess.length !== ANSWER_LENGTH) return;
+
+    isLoading = true;
+    setLoading(isLoading);
+    const res = await fetch("https://words.dev-apis.com/validate-word", {
+      method: "POST",
+      body: JSON.stringify({ word: currentGuess }),
+    });
+    const { validWord } = await res.json();
+    isLoading = false;
+    setLoading(isLoading);
+
+    if (!validWord) {
+      markInvalidWord();
+      return;
+    }
+
     const guessParts = currentGuess.split("");
     const map = makeMap(wordParts);
+    let allRight = true;
 
     for (let i = 0; i < ANSWER_LENGTH; i++) {
       if (guessParts[i] === wordParts[i]) {
@@ -41,85 +57,74 @@ async function init() {
     }
 
     for (let i = 0; i < ANSWER_LENGTH; i++) {
-      if (guessParts[i] !== wordParts[i]) {
-        if (map[guessParts[i]] && map[guessParts[i]] > 0) {
-          letters[currentRow * ANSWER_LENGTH + i].classList.add("close");
-          map[guessParts[i]]--;
-        } else {
-          letters[currentRow * ANSWER_LENGTH + i].classList.add("wrong");
-        }
+      if (guessParts[i] === wordParts[i]) continue;
+      if (map[guessParts[i]] && map[guessParts[i]] > 0) {
+        allRight = false;
+        letters[currentRow * ANSWER_LENGTH + i].classList.add("close");
+        map[guessParts[i]]--;
+      } else {
+        allRight = false;
+        letters[currentRow * ANSWER_LENGTH + i].classList.add("wrong");
       }
+    }
+
+    if (allRight) {
+      alert("You win!");
+      document.querySelector(".brand").classList.add("winner");
+      done = true;
+    } else if (currentRow === ROUNDS) {
+      alert(`You lose, the word was ${word}`);
+      done = true;
     }
 
     currentRow++;
     currentGuess = "";
-
-    if (currentRow === ROUNDS) {
-      done = true;
-      showMessage(`The word was ${word}.`);
-    }
-
-    if (word === currentGuess) {
-      done = true;
-      showMessage("You Win!", true);
-    }
   }
 
   function backspace() {
     currentGuess = currentGuess.substring(0, currentGuess.length - 1);
-    updateLetters(currentRow, currentGuess);
+    letters[currentRow * ANSWER_LENGTH + currentGuess.length].innerText = "";
   }
 
-  function handleKeyPress(event) {
+  function markInvalidWord() {
+    for (let i = 0; i < ANSWER_LENGTH; i++) {
+      letters[currentRow * ANSWER_LENGTH + i].classList.remove("invalid");
+      setTimeout(() => letters[currentRow * ANSWER_LENGTH + i].classList.add("invalid"), 10);
+    }
+  }
+
+  document.addEventListener("keydown", function handleKeyPress(event) {
     if (done || isLoading) return;
 
     const action = event.key;
     if (action === "Enter") {
-      commitGuess();
+      commit();
     } else if (action === "Backspace") {
       backspace();
     } else if (isLetter(action)) {
       addLetter(action.toUpperCase());
     }
-  }
+  });
+}
 
-  function updateLetters(row, guess) {
-    for (let i = 0; i < ANSWER_LENGTH; i++) {
-      letters[row * ANSWER_LENGTH + i].innerText = guess[i] || "";
+function isLetter(letter) {
+  return /^[a-zA-Z]$/.test(letter);
+}
+
+function setLoading(isLoading) {
+  loadingDiv.classList.toggle("hidden", !isLoading);
+}
+
+function makeMap(array) {
+  const obj = {};
+  for (const item of array) {
+    if (obj[item]) {
+      obj[item]++;
+    } else {
+      obj[item] = 1;
     }
   }
-
-  function showMessage(message, isWinner = false) {
-    const messageDiv = document.createElement("div");
-    messageDiv.className = "message";
-    if (isWinner) messageDiv.classList.add("winner");
-    messageDiv.innerText = message;
-    document.body.appendChild(messageDiv);
-  }
-
-  function setLoading(isLoading) {
-    loadingDiv.classList.toggle("hidden", !isLoading);
-  }
-
-  function isLetter(letter) {
-    return /^[a-zA-Z]$/.test(letter);
-  }
-
-  function makeMap(array) {
-    const map = {};
-    for (const item of array) {
-      if (map[item]) {
-        map[item]++;
-      } else {
-        map[item] = 1;
-      }
-    }
-    return map;
-  }
-
-  document.addEventListener("keydown", handleKeyPress);
-
-  setLoading(false);
+  return obj;
 }
 
 init();
