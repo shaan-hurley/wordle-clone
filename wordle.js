@@ -2,8 +2,42 @@ const ANSWER_LENGTH = 5;
 const ROUNDS = 6;
 const letters = document.querySelectorAll(".scoreboard-letter");
 const loadingDiv = document.querySelector(".info-bar");
+const keyboardContainer = document.getElementById("keyboard");
 
-// Initialize the game
+const KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function createKeyboard() {
+  KEYS.forEach(key => {
+    const keyElement = document.createElement("div");
+    keyElement.className = "key";
+    keyElement.innerText = key;
+    keyElement.addEventListener("click", () => handleKeyClick(key));
+    keyboardContainer.appendChild(keyElement);
+  });
+}
+
+function handleKeyClick(key) {
+  if (done || isLoading) return;
+
+  if (key === "Enter") {
+    commit();
+  } else if (key === "Backspace") {
+    backspace();
+  } else if (isLetter(key)) {
+    addLetter(key);
+    disableKey(key);
+  }
+}
+
+function disableKey(key) {
+  const keyElements = document.querySelectorAll(".key");
+  keyElements.forEach(keyElement => {
+    if (keyElement.innerText === key) {
+      keyElement.classList.add("disabled");
+    }
+  });
+}
+
 async function init() {
   let currentRow = 0;
   let currentGuess = "";
@@ -17,6 +51,8 @@ async function init() {
   const wordParts = word.split("");
   isLoading = false;
   setLoading(isLoading);
+
+  createKeyboard();
 
   function addLetter(letter) {
     if (currentGuess.length < ANSWER_LENGTH) {
@@ -96,13 +132,14 @@ async function init() {
   document.addEventListener("keydown", function handleKeyPress(event) {
     if (done || isLoading) return;
 
-    const action = event.key;
-    if (action === "Enter") {
+    const action = event.key.toUpperCase();
+    if (action === "ENTER") {
       commit();
-    } else if (action === "Backspace") {
+    } else if (action === "BACKSPACE") {
       backspace();
     } else if (isLetter(action)) {
-      addLetter(action.toUpperCase());
+      addLetter(action);
+      disableKey(action);
     }
   });
 }
